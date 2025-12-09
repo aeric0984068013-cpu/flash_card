@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>單字抽認卡</title>
+    <!-- 載入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 深色背景 */
+        body {
+            background-color: #1f2937; /* 灰色 800 */
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        /* ------------------- 卡片翻轉 CSS 核心 ------------------- */
+        
+        /* 1. 設定視角 (Perspective) */
+        .flip-card-container {
+            perspective: 1000px;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 2. 定義翻轉卡片及其過渡效果 */
+        .flip-card {
+            width: 100%;
+            height: 100%;
+            transition: transform 0.8s;
+            transform-style: preserve-3d; /* 讓 3D 效果生效 */
+            position: relative;
+        }
+
+        /* 3. 翻轉狀態：應用旋轉 */
+        .flip-card.flipped {
+            transform: rotateY(180deg);
+        }
+
+        /* 4. 定義卡片的前後兩面 */
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden; /* 隱藏旋轉到背面時的前面內容 */
+            backface-visibility: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* 5. 卡片背面：初始旋轉 180 度，使其對齊背面 */
+        .flip-card-back {
+            transform: rotateY(180deg);
+        }
+
+        /* 確保文字在小螢幕上不會太大 */
+        .card-text {
+            font-size: 2rem;
+        }
+        @media (max-width: 640px) {
+            .card-text {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <main class="max-w-3xl w-full p-4">
+        <h1 class="text-4xl font-extrabold text-white text-center mb-10">單字抽認卡</h1>
+
+        <!-- 卡片容器 -->
+        <div class="mx-auto w-full max-w-lg h-96 flip-card-container cursor-pointer" id="cardContainer">
+            <div class="flip-card" id="flipCard">
+                
+                <!-- 卡片正面 (Term) -->
+                <div class="card-face flip-card-front bg-white text-gray-800">
+                    <p class="text-sm font-light text-gray-500 mb-2">單字 (Term)</p>
+                    <div class="card-text text-center font-black" id="cardTerm">
+                        Loading...
+                    </div>
+                </div>
+
+                <!-- 卡片背面 (Definition) -->
+                <div class="card-face flip-card-back bg-white text-gray-800">
+                    <p class="text-sm font-light text-gray-500 mb-2">解釋 (Definition)</p>
+                    <div class="card-text text-center font-medium" id="cardDefinition">
+                        Loading...
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- 導航與狀態控制 -->
+        <div class="mt-8 flex justify-center items-center gap-4 text-white">
+            <button id="prevBtn" class="p-3 bg-gray-700 hover:bg-gray-600 rounded-full transition duration-150 disabled:opacity-50" aria-label="上一張">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                </svg>
+            </button>
+            
+            <span id="cardCounter" class="text-lg font-semibold">
+                0/0
+            </span>
+            
+            <button id="nextBtn" class="p-3 bg-gray-700 hover:bg-gray-600 rounded-full transition duration-150 disabled:opacity-50" aria-label="下一張">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                </svg>
+            </button>
+        </div>
+        
+        <p class="text-center text-gray-400 mt-4 text-sm">點擊卡片任意位置即可翻轉</p>
+    </main>
+
+    <script>
+        // 模擬單字資料 (Mock Flashcard Data)
+        const flashcards = [
+            { term: "Persistence", definition: "堅持不懈；持續存在" },
+            { term: "Agile", definition: "敏捷的；靈活的 (常指軟體開發方法)" },
+            { term: "Refactor", definition: "重構 (在不改變外部行為下，改善程式碼內部結構)" },
+            { term: "Decouple", definition: "解耦 (降低系統元件之間的依賴性)" },
+            { term: "Latency", definition: "延遲時間；潛伏期" },
+            { term: "Idiosyncrasy", definition: "特質；習性" }
+        ];
+
+        // 元素選取 (Element Selectors)
+        const flipCard = document.getElementById('flipCard');
+        const cardContainer = document.getElementById('cardContainer');
+        const cardTerm = document.getElementById('cardTerm');
+        const cardDefinition = document.getElementById('cardDefinition');
+        const cardCounter = document.getElementById('cardCounter');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        
+        // 狀態管理 (State Management)
+        let currentCardIndex = 0;
+        let isFlipped = false;
+
+        /**
+         * 切換卡片的翻轉狀態。
+         */
+        function toggleFlip() {
+            isFlipped = !isFlipped;
+            flipCard.classList.toggle('flipped', isFlipped);
+        }
+
+        /**
+         * 顯示當前索引的卡片內容並更新導航按鈕狀態。
+         */
+        function displayCard() {
+            if (flashcards.length === 0) {
+                cardTerm.textContent = "無資料";
+                cardDefinition.textContent = "請新增單字卡";
+                cardCounter.textContent = "0/0";
+                prevBtn.disabled = true;
+                nextBtn.disabled = true;
+                return;
+            }
+            
+            const card = flashcards[currentCardIndex];
+            
+            // 寫入內容
+            cardTerm.textContent = card.term;
+            cardDefinition.textContent = card.definition;
+            
+            // 更新計數器 (顯示當前卡片 / 總數)
+            cardCounter.textContent = `${currentCardIndex + 1}/${flashcards.length}`;
+            
+            // 更新按鈕狀態
+            prevBtn.disabled = currentCardIndex === 0;
+            nextBtn.disabled = currentCardIndex === flashcards.length - 1;
+            
+            // 確保卡片回到正面
+            if (isFlipped) {
+                toggleFlip();
+            }
+        }
+
+        /**
+         * 導航到下一張卡片。
+         */
+        function nextCard() {
+            if (currentCardIndex < flashcards.length - 1) {
+                currentCardIndex++;
+                displayCard();
+            }
+        }
+
+        /**
+         * 導航到上一張卡片。
+         */
+        function prevCard() {
+            if (currentCardIndex > 0) {
+                currentCardIndex--;
+                displayCard();
+            }
+        }
+
+        // ----------------------------------------------------
+        // 事件監聽器 (Event Listeners)
+        // ----------------------------------------------------
+
+        // 點擊卡片容器翻轉
+        cardContainer.addEventListener('click', toggleFlip);
+        
+        // 導航按鈕
+        nextBtn.addEventListener('click', nextCard);
+        prevBtn.addEventListener('click', prevCard);
+
+        // 鍵盤導航 (選用功能)
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') {
+                nextCard();
+            } else if (e.key === 'ArrowLeft') {
+                prevCard();
+            } else if (e.key === ' ' || e.key === 'Enter') {
+                e.preventDefault(); // 避免空格鍵捲動頁面
+                toggleFlip();
+            }
+        });
+
+        // 初始化
+        window.onload = displayCard;
+    </script>
+</body>
+</html>
